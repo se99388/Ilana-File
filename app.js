@@ -7,12 +7,9 @@ const notification = require('./util/notification');
 const config = require('config');
 
 const tempDir = config.get('tempDir');
-//here you define the file + directory for the temp file and the archive file + dir
-const stiFileName = path.resolve(tempDir, 'STI_archive_file.csv');
-const giFileName = path.resolve(
-    config.get('seegeneFilesDir'),
-    'GI_archive_file.csv',
-);
+
+const oldVersionFile = path.resolve(config.get('oldFileVersionDir'), 'finalFile.csv');
+console.log("oldVersionFile", oldVersionFile)
 let count = 0;
 
 fs.watch(tempDir, (eventType, filename) => {
@@ -22,47 +19,38 @@ fs.watch(tempDir, (eventType, filename) => {
     if (eventType == 'change') {
         count += 1;
         if (count == 2) {
-            if (!io.fileValidation(filename, (splitLength = 4))) {
-                io.removeFile(pathDirAndFile);
-                notification.displayNotification(
-                    'hylabs-notification-Error',
-                    'The file:' + filename + ", hasn't the correct pattern",
-                );
-                count = 0;
-                return false;
-            }
-            console.log(eventType);
 
             let allData = [];
             let fileNameObj = {};
             let responseFile;
 
-            //function that get the file name and return parsed object
-            fileNameObj = io.parseFileToObject(filename);
-
-            //read the .csv file and parse it by ","
+            let rowsNumber = 17;
+            let startingData = { a: "", b: "", c: "", d: "", e: "", f: "", g: "", h: "", i:"" }
+            for (let i = 0; i < rowsNumber; i++) {
+                allData.push({ ...startingData });
+            }
             fs.createReadStream(pathDirAndFile)
-                .pipe(csvParser())
+
+                // .pipe(csvParser({ headers:["Sample N°","Count","Dilution", "V (mL)", "CFU/mL"] }))
+                .pipe(csvParser({ headers: ["a", "b", "c", "d", "e", "f", "g", "h", "i"] }))
+
                 .on('error', error => console.error(error))
                 .on('data', row => allData.push(row))
                 .on('end', () => {
-                    //after finish to read all content and after stored it in "allData" array
-                    const firstObjInAllData = allData[0];
-                    //checking if it is "STI" file or "GI" file
-                    for (let key in firstObjInAllData) {
-                        if (firstObjInAllData[key].match(/STI/)) {
-                            console.log('yes-STI', firstObjInAllData[key]);
-                            //write the content in allData array in the archive file
-                            io.writeToFile(allData, stiFileName, fileNameObj);
-                            responseFile = stiFileName;
-                        }
-                        if (firstObjInAllData[key].match(/GI/)) {
-                            console.log('yes-GI', firstObjInAllData[key]);
-                            //write the content in allData array in the archive file
-                            io.writeToFile(allData, giFileName, fileNameObj);
-                            responseFile = giFileName;
-                        }
-                    }
+        
+                   const testType =  io.defineTestByPlateType(allData, config.get('indexOfPlateType'), Object.keys( allData[0])[8]);
+
+                   io.convertDilutionFormat(allData, 'c');
+                    allData[config.get("indexTestType")].b = testType;
+                       let firstColumn = Object.keys( allData[0] )[3];
+                       let secondColumn = Object.keys( allData[0] )[4];
+                        io.switchBetween2Columns(allData,firstColumn,secondColumn);
+                         firstColumn = Object.keys( allData[0] )[2];
+                        secondColumn = Object.keys( allData[0] )[4];
+                        io.switchBetween2Columns(allData,firstColumn,secondColumn);
+                    
+                    io.writeToFile(allData, oldVersionFile, fileNameObj);
+
                     console.log({
                         message:
                             'The file:\n' +
@@ -71,14 +59,16 @@ fs.watch(tempDir, (eventType, filename) => {
                             responseFile,
                     });
 
-                    const message = `The file:${pathDirAndFile}, uploaded to ${responseFile}`;
+                    const message = `The file uploaded to ${oldVersionFile}`;
                     // windows notification
                     notification.displayNotification(
                         'hylabs-notification',
                         message,
                     );
+
+                     io.removeFile(pathDirAndFile);
                 });
-            io.removeFile(pathDirAndFile);
+           
             count = 0;
         }
     }

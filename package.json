@@ -21,6 +21,7 @@
     "start": "node app",
     "start-ofir": "NODE_ENV=ofir node app"
   },
+  "bin" : "app.js",
   "author": "",
   "license": "ISC"
 }
