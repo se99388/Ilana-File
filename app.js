@@ -4,12 +4,15 @@ const csv = require('fast-csv');
 const path = require('path');
 const io = require('./util/io');
 const notification = require('./util/notification');
-const config = require('config');
-
+const config = require('./node_modules/config');
 const tempDir = config.get('tempDir');
 
+
+notification.displayNotification("hylabs-converter-strating","Goodluck")
+
 const oldVersionFile = path.resolve(config.get('oldFileVersionDir'), 'finalFile.csv');
-console.log("oldVersionFile", oldVersionFile)
+
+console.log("oldVersionFile", oldVersionFile);
 let count = 0;
 
 fs.watch(tempDir, (eventType, filename) => {
